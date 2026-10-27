@@ -1,0 +1,46 @@
+# Publica como Release los rpcs3.exe de las compilaciones gow3-* indicadas en
+# buildfiles/msvc/gow3_release_runs.txt (líneas "nombre run_id"), para
+# descargarlos en el portátil sin iniciar sesión.
+name: GoW3 release
+
+on:
+  push:
+    branches:
+      - 'gow3-release'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@main
+      - name: Descargar artefactos y extraer rpcs3.exe
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -ex
+          sudo apt-get install -y p7zip-full >/dev/null
+          mkdir -p out
+          while read -r name run; do
+            [ -z "$name" ] && continue
+            gh run download "$run" -R "${{ github.repository }}" -p 'rpcs3-gow3-*' -D "dl/$name"
+            f=$(find "dl/$name" -name '*.7z' | head -1)
+            echo "== $name ($run): $f"
+            7z l "$f" | tail -n +12 | awk '{print $NF}' | grep -v -E '^(qt6|GuiConfigs|Icons|config|test|bin)/' | head -80
+            7z e -y -o"x/$name" "$f" rpcs3.exe >/dev/null
+            cp "x/$name/rpcs3.exe" "out/rpcs3-$name.exe"
+            if 7z l "$f" | grep -q pgort140.dll; then 7z e -y -o"x/$name" "$f" pgort140.dll >/dev/null; cp "x/$name/pgort140.dll" out/; fi
+            cp "$f" "out/rpcs3-$name.7z"
+          done < buildfiles/msvc/gow3_release_runs.txt
+          (cd out && sha256sum * | tee SHA256SUMS.txt)
+      - name: Publicar
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="gow3-builds-$(date -u +%Y%m%d-%H%M)"
+          gh release create "$tag" out/* -R "${{ github.repository }}" --prerelease \
+            --title "$tag" \
+            --notes "Compilaciones de prueba del fork para God of War III (Ryzen 5 3500U). No oficiales. Licencia GPL-2.0, como RPCS3. Ejecuciones: $(tr '\n' ' ' < buildfiles/msvc/gow3_release_runs.txt)"
