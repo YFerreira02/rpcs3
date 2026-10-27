@@ -29,7 +29,7 @@ jobs:
             gh run download "$run" -R "${{ github.repository }}" -p 'rpcs3-gow3-*' -D "dl/$name"
             f=$(find "dl/$name" -name '*.7z' | head -1)
             echo "== $name ($run): $f"
-            7z l "$f" | tail -n +12 | awk '{print $NF}' | grep -v -E '^(qt6|GuiConfigs|Icons|config|test|bin)/' | head -80
+            7z l -slt "$f" | awk -F' = ' '/^Path = /{p=$2} /^Size = /{print $2"\t"p}' > "out/contents-$name.txt"
             7z e -y -o"x/$name" "$f" rpcs3.exe >/dev/null
             cp "x/$name/rpcs3.exe" "out/rpcs3-$name.exe"
             if 7z l "$f" | grep -q pgort140.dll; then 7z e -y -o"x/$name" "$f" pgort140.dll >/dev/null; cp "x/$name/pgort140.dll" out/; fi
