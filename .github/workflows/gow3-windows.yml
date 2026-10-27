@@ -10,6 +10,7 @@ on:
   push:
     branches:
       - 'gow3-*'
+      - '!gow3-release'
   workflow_dispatch:
 
 env:
