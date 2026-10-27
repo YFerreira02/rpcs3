@@ -1,7 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Opciones de compilación de las ramas gow3-* (fork para God of War III en
-     Ryzen 5 3500U). Rama base: idéntica a la compilación oficial (solo LTCG
-     de ci_only.targets). -->
+     Ryzen 5 3500U). Rama zen: LTCG oficial + AVX2/FMA para todo el código C++
+     de RPCS3 (el código PS3 ya se traduce con LLVM para la CPU anfitriona) y
+     /favor:AMD64 para el planificador de instrucciones de AMD.
+     Requiere una CPU con AVX2 (Zen, Haswell o posterior). -->
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildThisFileDirectory)ci_only.targets" />
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <AdditionalOptions>/favor:AMD64 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+  </ItemDefinitionGroup>
 </Project>
