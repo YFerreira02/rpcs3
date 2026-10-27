@@ -99,6 +99,29 @@ jobs:
         shell: pwsh
         run: msbuild rpcs3.sln /p:Configuration=Release /v:minimal /p:Platform=x64 /p:PreferredToolArchitecture=x64 /p:CLToolPath=${{ env.CCACHE_BIN_DIR }} /p:UseMultiToolTask=true /p:CustomAfterMicrosoftCommonTargets="${{ github.workspace }}\buildfiles\msvc\gow3_opt.targets"
 
+      # Ramas gow3-pgo-instr*: compilación instrumentada para PGO. Necesita
+      # pgort140.dll junto a rpcs3.exe y guarda rpcs3.pgd aparte (lo usará la
+      # compilación optimizada junto con los .pgc grabados en el portátil).
+      - name: PGO - copiar pgort140.dll y separar rpcs3.pgd
+        if: contains(github.ref_name, 'pgo-instr')
+        shell: pwsh
+        run: |
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -property installationPath
+          $dll = Get-ChildItem -Path "$vs\VC\Tools\MSVC" -Recurse -Filter pgort140.dll | Where-Object { $_.FullName -match 'Hostx64\\x64' } | Select-Object -First 1
+          if (-not $dll) { throw "pgort140.dll no encontrado en $vs" }
+          Copy-Item $dll.FullName bin\
+          Write-Host "pgort140.dll: $($dll.FullName)"
+          New-Item -ItemType Directory -Force pgd_out | Out-Null
+          Move-Item bin\rpcs3.pgd pgd_out\
+
+      - name: PGO - subir rpcs3.pgd
+        if: contains(github.ref_name, 'pgo-instr')
+        uses: actions/upload-artifact@main
+        with:
+          name: rpcs3-pgd-${{ github.ref_name }}-${{ github.sha }}
+          path: pgd_out/
+          if-no-files-found: error
+
       - name: Pack up build artifacts
         run: |
           mkdir -p "${{ env.BUILD_ARTIFACTSTAGINGDIRECTORY }}"
