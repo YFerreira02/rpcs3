@@ -90,6 +90,31 @@ jobs:
             echo "$key=$val" >> "${{ github.env }}"
           done < .ci/ci-vars.env
 
+      # Ramas gow3-pgo*: rpcs3.pgd de la compilación instrumentada (artefacto de
+      # la ejecución indicada en buildfiles/msvc/gow3_pgo_run.txt) y los .pgc
+      # grabados jugando en el portátil (pgo/*.pgc), juntos en bin\.
+      - name: PGO - leer la ejecución instrumentada
+        if: contains(github.ref_name, 'pgo') && !contains(github.ref_name, 'pgo-instr')
+        id: pgorun
+        run: echo "run_id=$(tr -d '[:space:]' < buildfiles/msvc/gow3_pgo_run.txt)" >> "$GITHUB_OUTPUT"
+
+      - name: PGO - descargar rpcs3.pgd
+        if: contains(github.ref_name, 'pgo') && !contains(github.ref_name, 'pgo-instr')
+        uses: actions/download-artifact@main
+        with:
+          pattern: rpcs3-pgd-*
+          merge-multiple: true
+          path: bin
+          run-id: ${{ steps.pgorun.outputs.run_id }}
+          github-token: ${{ github.token }}
+
+      - name: PGO - copiar los perfiles .pgc
+        if: contains(github.ref_name, 'pgo') && !contains(github.ref_name, 'pgo-instr')
+        run: |
+          ls -la bin/rpcs3.pgd
+          cp -v pgo/*.pgc bin/
+          ls -la bin/*.pgc
+
       - name: Add msbuild to PATH
         uses: microsoft/setup-msbuild@main
 
@@ -102,6 +127,7 @@ jobs:
       - name: Pack up build artifacts
         run: |
           mkdir -p "${{ env.BUILD_ARTIFACTSTAGINGDIRECTORY }}"
+          if [[ "${{ github.ref_name }}" == *pgo* && "${{ github.ref_name }}" != *pgo-instr* ]]; then rm -fv bin/*.pgd bin/*.pgc; fi
           .ci/deploy-windows.sh
 
       - name: Upload artifacts (7z)
